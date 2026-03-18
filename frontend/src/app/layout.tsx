@@ -1,6 +1,7 @@
 "use client";
 
 import { Toaster } from "react-hot-toast";
+import BurgerMenu from "@/components/BurgerMenu";
 import "./globals.css";
 
 export default function RootLayout({
@@ -12,6 +13,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-gray-50">
         <Toaster position="top-right" />
+        <BurgerMenu />
         {children}
       </body>
     </html>

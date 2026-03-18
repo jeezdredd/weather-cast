@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.schemas import WeatherRecordCreate, WeatherRecordResponse, WeatherRecordUpdate
-from app.services import geocoding_service, weather_service
+from app.services import forecast_service, geocoding_service, weather_service
 
 router = APIRouter(prefix="/weather", tags=["weather"])
 
@@ -81,3 +81,53 @@ async def delete_record(record_id: int, session: AsyncSession = Depends(get_sess
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
     await weather_service.delete_record(session, record)
+
+
+@router.get("/country-average")
+async def get_country_average(
+    country: str = Query(min_length=1),
+):
+    cities = await geocoding_service.search_cities(country, count=5)
+    if not cities:
+        raise HTTPException(status_code=404, detail="Country not found")
+
+    temps: list[float] = []
+    for city in cities:
+        try:
+            data = await weather_service.fetch_current_weather(city.latitude, city.longitude)
+            if data.get("temperature") is not None:
+                temps.append(data["temperature"])
+        except Exception:
+            continue
+
+    if not temps:
+        raise HTTPException(status_code=502, detail="Could not fetch temperature data")
+
+    return {
+        "country": country,
+        "average_temperature": round(sum(temps) / len(temps), 1),
+        "sample_cities": len(temps),
+    }
+
+
+@router.get("/forecast")
+async def get_forecast(
+    lat: float | None = Query(default=None, ge=-90, le=90),
+    lon: float | None = Query(default=None, ge=-180, le=180),
+    city: str | None = Query(default=None),
+    country: str | None = Query(default=None),
+    days: int = Query(default=5, ge=1, le=16),
+):
+    if lat is not None and lon is not None:
+        return await forecast_service.fetch_forecast(lat, lon, days)
+
+    if city:
+        coords = await geocoding_service.geocode_city(city, country)
+        if not coords:
+            raise HTTPException(status_code=404, detail="City not found")
+        return await forecast_service.fetch_forecast(coords[0], coords[1], days)
+
+    raise HTTPException(
+        status_code=400,
+        detail="Provide lat/lon coordinates or a city name",
+    )

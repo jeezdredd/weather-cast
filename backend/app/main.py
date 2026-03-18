@@ -5,7 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.logging_config import setup_logging
-from app.routers import geocoding, weather
+from app.middleware import RequestProfilerMiddleware
+from app.routers import geocoding, system, weather
 from app.tasks import start_scheduler, stop_scheduler
 
 
@@ -26,9 +27,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestProfilerMiddleware)
 
 app.include_router(weather.router)
 app.include_router(geocoding.router)
+app.include_router(system.router)
 
 
 @app.get("/health")
