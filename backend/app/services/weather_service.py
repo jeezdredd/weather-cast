@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import UTC, datetime
 
@@ -10,6 +11,9 @@ from app.models import WeatherRecord
 from app.schemas import WeatherRecordCreate, WeatherRecordUpdate
 
 logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
+RETRY_DELAYS = [1.0, 3.0, 6.0]
 
 WMO_CODES: dict[int, str] = {
     0: "Clear sky",
@@ -51,8 +55,14 @@ async def fetch_current_weather(latitude: float, longitude: float) -> dict:
         "current": "temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,weather_code",
     }
     async with httpx.AsyncClient() as client:
-        response = await client.get(url, params=params, timeout=10.0)
-        response.raise_for_status()
+        for attempt in range(MAX_RETRIES):
+            response = await client.get(url, params=params, timeout=10.0)
+            if response.status_code == 429 and attempt < MAX_RETRIES - 1:
+                logger.warning("Open-Meteo 429, retrying in %.1fs (attempt %d)", RETRY_DELAYS[attempt], attempt + 1)
+                await asyncio.sleep(RETRY_DELAYS[attempt])
+                continue
+            response.raise_for_status()
+            break
         data = response.json()
 
     current = data["current"]

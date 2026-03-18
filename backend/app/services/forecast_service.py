@@ -1,7 +1,12 @@
+import asyncio
+import logging
+
 import httpx
 
 from app.config import settings
-from app.services.weather_service import WMO_CODES
+from app.services.weather_service import MAX_RETRIES, RETRY_DELAYS, WMO_CODES
+
+logger = logging.getLogger(__name__)
 
 
 async def fetch_forecast(latitude: float, longitude: float, days: int = 5) -> list[dict]:
@@ -14,8 +19,14 @@ async def fetch_forecast(latitude: float, longitude: float, days: int = 5) -> li
         "forecast_days": days,
     }
     async with httpx.AsyncClient() as client:
-        response = await client.get(url, params=params, timeout=10.0)
-        response.raise_for_status()
+        for attempt in range(MAX_RETRIES):
+            response = await client.get(url, params=params, timeout=10.0)
+            if response.status_code == 429 and attempt < MAX_RETRIES - 1:
+                logger.warning("Open-Meteo 429 (forecast), retrying in %.1fs", RETRY_DELAYS[attempt])
+                await asyncio.sleep(RETRY_DELAYS[attempt])
+                continue
+            response.raise_for_status()
+            break
         data = response.json()
 
     daily = data["daily"]
