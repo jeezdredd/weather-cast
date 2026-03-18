@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -16,7 +17,9 @@ async def refresh_weather_data() -> None:
     async with async_session() as session:
         coordinates = await weather_service.get_distinct_coordinates(session)
         logger.info("Found %d distinct coordinate pairs to refresh", len(coordinates))
-        for coord in coordinates:
+        for i, coord in enumerate(coordinates):
+            if i > 0:
+                await asyncio.sleep(2.0)
             try:
                 await weather_service.get_current_weather_and_save(
                     session,

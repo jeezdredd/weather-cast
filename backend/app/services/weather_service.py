@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from datetime import UTC, datetime
 
 import httpx
@@ -13,7 +14,10 @@ from app.schemas import WeatherRecordCreate, WeatherRecordUpdate
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
-RETRY_DELAYS = [1.0, 3.0, 6.0]
+RETRY_DELAYS = [2.0, 5.0, 10.0]
+
+CACHE_TTL = 300
+_weather_cache: dict[str, tuple[float, dict]] = {}
 
 WMO_CODES: dict[int, str] = {
     0: "Clear sky",
@@ -47,7 +51,17 @@ WMO_CODES: dict[int, str] = {
 }
 
 
+def _cache_key(lat: float, lon: float) -> str:
+    return f"{round(lat, 2)}:{round(lon, 2)}"
+
+
 async def fetch_current_weather(latitude: float, longitude: float) -> dict:
+    key = _cache_key(latitude, longitude)
+    cached = _weather_cache.get(key)
+    if cached and (time.time() - cached[0]) < CACHE_TTL:
+        logger.debug("Cache hit for %s", key)
+        return {**cached[1], "recorded_at": datetime.now(UTC)}
+
     url = f"{settings.open_meteo_base_url}/forecast"
     params = {
         "latitude": latitude,
@@ -68,14 +82,16 @@ async def fetch_current_weather(latitude: float, longitude: float) -> dict:
     current = data["current"]
     weather_code = current.get("weather_code", 0)
 
-    return {
+    result = {
         "temperature": current.get("temperature_2m"),
         "humidity": current.get("relative_humidity_2m"),
         "pressure": current.get("surface_pressure"),
         "wind_speed": current.get("wind_speed_10m"),
         "weather_description": WMO_CODES.get(weather_code, "Unknown"),
-        "recorded_at": datetime.now(UTC),
     }
+    _weather_cache[key] = (time.time(), result)
+
+    return {**result, "recorded_at": datetime.now(UTC)}
 
 
 async def get_current_weather_and_save(

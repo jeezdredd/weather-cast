@@ -89,14 +89,14 @@ async def delete_record(record_id: int, session: AsyncSession = Depends(get_sess
 async def get_country_average(
     country: str = Query(min_length=1),
 ):
-    cities = await geocoding_service.search_cities(country, count=5)
+    cities = await geocoding_service.search_cities(country, count=3)
     if not cities:
         raise HTTPException(status_code=404, detail="Country not found")
 
     temps: list[float] = []
     for i, city in enumerate(cities):
         if i > 0:
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1.5)
         try:
             data = await weather_service.fetch_current_weather(city.latitude, city.longitude)
             if data.get("temperature") is not None:
