@@ -21,6 +21,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(title="Weather Cast API", version="1.0.0", lifespan=lifespan)
 
+app.add_middleware(RequestProfilerMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.allowed_origins.split(",")],
@@ -28,7 +29,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(RequestProfilerMiddleware)
 
 app.include_router(weather.router)
 app.include_router(geocoding.router)
