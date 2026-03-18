@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +10,15 @@ class Settings(BaseSettings):
     geocoding_base_url: str = "https://geocoding-api.open-meteo.com/v1"
     log_level: str = "INFO"
     weather_update_interval_minutes: int = 30
+    allowed_origins: str = "http://localhost:3000"
+
+    @model_validator(mode="after")
+    def fix_database_url(self):
+        if self.database_url.startswith("postgresql://"):
+            self.database_url = self.database_url.replace(
+                "postgresql://", "postgresql+asyncpg://", 1
+            )
+        return self
 
 
 settings = Settings()
