@@ -1,9 +1,12 @@
+import logging
 import time
 from collections import deque
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 profiler_data: deque[dict] = deque(maxlen=200)
 
@@ -13,8 +16,12 @@ class RequestProfilerMiddleware(BaseHTTPMiddleware):
         start = time.time()
         try:
             response = await call_next(request)
-        except Exception:
-            response = Response(status_code=500)
+        except Exception as exc:
+            logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": str(exc)},
+            )
         duration = round((time.time() - start) * 1000, 2)
 
         profiler_data.append({
