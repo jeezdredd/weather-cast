@@ -122,9 +122,11 @@ const INFO_ITEMS = [
   { href: "/licenses", label: "Licenses & Attribution", Icon: LicenseIcon },
 ];
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 const EXTERNAL_ITEMS = [
   {
-    href: (typeof window !== "undefined" ? window.location.origin.replace(":3000", ":8000") : "http://localhost:8000") + "/docs",
+    href: `${API_BASE}/docs`,
     label: "API Docs (Swagger)",
     Icon: SwaggerIcon,
   },
